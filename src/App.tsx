@@ -39,11 +39,13 @@ export const App: React.FC = () => {
   };
 
   const filteredSuggestion = useMemo(() => {
-    return appliedQuery !== ''
-      ? peopleFromServer.filter(suggestion =>
-          suggestion.name.includes(appliedQuery),
-        )
-      : peopleFromServer;
+    if (appliedQuery !== '') {
+      return peopleFromServer.filter(suggestion =>
+        suggestion.name.includes(appliedQuery),
+      );
+    }
+
+    return peopleFromServer;
   }, [appliedQuery]);
 
   return (
