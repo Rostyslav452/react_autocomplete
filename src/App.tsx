@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './App.scss';
 import { peopleFromServer } from './data/people';
 import { Person } from './types/Person';
+import classNames from 'classnames';
 
 function debounce(
   callback: React.Dispatch<React.SetStateAction<string>>,
@@ -16,7 +17,12 @@ function debounce(
   };
 }
 
-export const App: React.FC = () => {
+interface Props {
+  delay?: number;
+  onSelected?: (person: Person) => void;
+}
+
+export const App: React.FC<Props> = ({ delay = 300, onSelected }) => {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
   const focus = useRef<HTMLInputElement>(null);
@@ -27,26 +33,41 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const [isFocused, setIsFocused] = useState(false);
+
   const [query, setQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
-  const [delay] = useState(300);
 
   const applyQuery = useMemo(() => debounce(setAppliedQuery, delay), [delay]);
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedPerson(null);
     setQuery(e.target.value);
+
+
     applyQuery(e.target.value);
   };
 
   const filteredSuggestion = useMemo(() => {
-    if (appliedQuery !== '') {
+    const normalizedQuery = appliedQuery.trim().toLowerCase();
+    if (normalizedQuery !== '') {
       return peopleFromServer.filter(suggestion =>
-        suggestion.name.includes(appliedQuery),
+        suggestion.name.toLowerCase().includes(normalizedQuery),
       );
     }
 
     return peopleFromServer;
   }, [appliedQuery]);
+
+  const handleSelect = (suggestion: Person) => {
+    setSelectedPerson(suggestion);
+    setQuery(suggestion.name);
+    setAppliedQuery(suggestion.name);
+    setIsFocused(false);
+
+    if (onSelected) {
+      onSelected(suggestion);
+    }
+  };
 
   return (
     <div className="container">
@@ -57,7 +78,11 @@ export const App: React.FC = () => {
             : `No selected person`}
         </h1>
 
-        <div className="dropdown is-active">
+        <div
+          className={classNames('dropdown', {
+            'is-active': isFocused,
+          })}
+        >
           <div className="dropdown-trigger">
             <input
               type="text"
@@ -66,11 +91,15 @@ export const App: React.FC = () => {
               ref={focus}
               value={query}
               onChange={handleQueryChange}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setTimeout(() => setIsFocused(false), 0);
+              }}
               data-cy="search-input"
             />
           </div>
 
-          {filteredSuggestion.length > 0 && (
+          {isFocused && filteredSuggestion.length > 0 && (
             <div
               className="dropdown-menu"
               role="menu"
@@ -82,9 +111,7 @@ export const App: React.FC = () => {
                     key={suggestion.name}
                     className="dropdown-item"
                     data-cy="suggestion-item"
-                    onClick={() => {
-                      setSelectedPerson(suggestion);
-                    }}
+                    onClick={() => handleSelect(suggestion)}
                   >
                     <p className="has-text-link">{suggestion.name}</p>
                   </div>
@@ -93,7 +120,7 @@ export const App: React.FC = () => {
             </div>
           )}
         </div>
-        {filteredSuggestion.length === 0 && (
+        {isFocused && filteredSuggestion.length === 0 && (
           <div
             className="
             notification
